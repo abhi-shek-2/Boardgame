@@ -10,7 +10,21 @@ pipeline {
         SCANNER_HOME= tool 'sonar-scanner'
     }
 
+    parameters {
+        string(name: 'DOCKER_TAG', defaultValue: '', description: 'Setting docker image for latest push')
+    }
+
     stages {
+        stage("Validate Parameters") {
+            steps {
+                script {
+                    if (params.DOCKER_TAG == '') {
+                        error("DOCKER_TAG must be provided.")
+                    }
+                }
+            }
+        }
+        
         stage('Clean workspace'){
             steps {
                 script{
@@ -21,7 +35,7 @@ pipeline {
 
         stage('Git Checkout') {
             steps {
-               git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/jaiswaladi246/Boardgame.git'
+               git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/abhi-shek-2/Boardgame.git'
             }
         }
         
@@ -97,7 +111,7 @@ pipeline {
             steps {
                script {
                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                            sh "docker build -t adijaiswal/boardshack:latest ."
+                            sh "docker build -t ranaabhi02/boardabhi:${params.DOCKER_TAG} ."
                     }
                }
             }
@@ -113,7 +127,7 @@ pipeline {
             steps {
                script {
                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                            sh "docker push adijaiswal/boardshack:latest"
+                            sh "docker push ranaabhi02/boardabhi:${params.DOCKER_TAG}"
                     }
                }
             }
@@ -121,7 +135,10 @@ pipeline {
 
         post {
             success {
-                build job : 'CD-pipeline'
+               // archiveArtifacts artifacts: '*.xml', followSymlinks: false
+            build job: "CD-pipeline", parameters: [
+                string(name: 'DOCKER_TAG', value: "${params.DOCKER_TAG}")
+            ]
             }
         }
         
