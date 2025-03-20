@@ -1,28 +1,130 @@
 pipeline {
-    agent {label 'slave-1'}
+    agent any
     
     tools {
-        maven 'maven3'
         jdk 'jdk17'
+        maven 'maven3'
     }
 
-    stages {     
-        stage('Compile') {
+    enviornment {
+        SCANNER_HOME= tool 'sonar-scanner'
+    }
+
+    stages {
+        stage('Clean workspace'){
             steps {
-               sh "mvn compile"
+                script{
+                    cleanWs()
+                }
+            }
+        }
+
+        stage('Git Checkout') {
+            steps {
+               git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/jaiswaladi246/Boardgame.git'
             }
         }
         
-        stage('Test') {
+        stage('Compile code') {
+            steps {
+                sh "mvn compile"
+            }
+        }
+        
+        stage('Run Test cases') {
             steps {
                 sh "mvn test"
             }
         }
         
-        stage('Build') {
+        stage('File System Scan') {
             steps {
-                sh "mvn package"
+                sh "trivy fs --format table -o trivy-fs-report.html ."
             }
         }
+        
+        stage('SonarQube Analsyis') {
+            steps {
+                withSonarQubeEnv('sonar') {
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=BoardGame -Dsonar.projectKey=BoardGame \
+                            -Dsonar.java.binaries=. '''
+                }
+            }
+        }
+        
+        stage('Sonar Quality Gate') {
+            steps {
+                script {
+                  waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token' 
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+               sh "mvn package"
+            }
+        }
+
+        stage('OWASP Dependency Check'){
+            steps {
+                dependencyCheck additionalArguments: '--scan target/', odcInstallation: 'owasp'
+            }
+        }
+
+        stage('Publish OWASP Dependency Check Report'){
+            steps {
+                publishHTML(target: [
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'target',
+                    reportFiles: 'dependency-check-report.html',
+                    reportName: 'OWASP Dependency Check Report'
+                ])
+            }
+        }
+        
+        stage('Publish To Nexus3') {
+            steps {
+               withMaven(globalMavenSettingsConfig: 'global-settings', jdk: 'jdk17', maven: 'maven3', mavenSettingsConfig: '', traceability: true) {
+                    sh "mvn deploy"
+                }
+            }
+        }
+        
+        stage('Build & Tag Docker Image') {
+            steps {
+               script {
+                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                            sh "docker build -t adijaiswal/boardshack:latest ."
+                    }
+               }
+            }
+        }
+        
+        stage('Docker Image Scan') {
+            steps {
+                sh "trivy image --format table -o trivy-image-report.html adijaiswal/boardshack:latest "
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+               script {
+                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                            sh "docker push adijaiswal/boardshack:latest"
+                    }
+               }
+            }
+        }
+
+        post {
+            success {
+                build job : 'CD-pipeline'
+            }
+        }
+        
     }
+
 }
