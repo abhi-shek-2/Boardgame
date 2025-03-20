@@ -1,6 +1,10 @@
 pipeline{
     agent any
 
+    parameters {
+        string(name: 'DOCKER_TAG', defaultValue: '', description: 'Frontend Docker tag of the image built by the CI job')
+    }
+
     stages{
         stage("Workspace cleanup"){
             steps{
@@ -15,7 +19,7 @@ pipeline{
                 script{
                     git branch: 'main',
                     credentialsId: 'git-cred',
-                    url:'https://github.com/jaiswaladi246/Boardgame.git'
+                    url:'https://github.com/abhi-shek-2/Boardgame.git'
                 }
             }
         }
