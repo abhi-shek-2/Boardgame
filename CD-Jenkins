@@ -18,7 +18,6 @@ pipeline{
             steps{
                 script{
                     git branch: 'main',
-                    credentialsId: 'git-cred',
                     url:'https://github.com/abhi-shek-2/Boardgame.git'
                 }
             }
@@ -35,9 +34,9 @@ pipeline{
         stage("Update K8s Files"){
             steps{
                 script{
-                    dir("Kubernetes"){
+                    dir("kubernetes"){
                         sh '''
-                        sed -i -e s/boardabhi.*/boardabhi:${params.DOCKER_TAG}/g deployment.yaml
+                        sed -i -e s/boardabhi.*/boardabhi:${DOCKER_TAG}/g deployment.yaml
                         '''
                     }
                 }
@@ -96,7 +95,7 @@ pipeline{
             script {
                 emailext attachLog: true,
                 from: 'abhi.786.35@gmail.com',
-                subject: "Wanderlust Application build failed - '${currentBuild.result}'",
+                subject: "BordGame Application build failed - '${currentBuild.result}'",
                 body: """
                     <html>
                     <body>
