@@ -6,7 +6,7 @@ pipeline {
         maven 'maven3'
     }
 
-    enviornment {
+    environment {
         SCANNER_HOME= tool 'sonar-scanner'
     }
 
@@ -35,7 +35,7 @@ pipeline {
 
         stage('Git Checkout') {
             steps {
-               git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/abhi-shek-2/Boardgame.git'
+               git branch: 'main', url: 'https://github.com/abhi-shek-2/Boardgame.git'
             }
         }
         
@@ -83,21 +83,10 @@ pipeline {
         stage('OWASP Dependency Check'){
             steps {
                 dependencyCheck additionalArguments: '--scan target/', odcInstallation: 'owasp'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
 
-        stage('Publish OWASP Dependency Check Report'){
-            steps {
-                publishHTML(target: [
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'target',
-                    reportFiles: 'dependency-check-report.html',
-                    reportName: 'OWASP Dependency Check Report'
-                ])
-            }
-        }
         
         stage('Publish To Nexus3') {
             steps {
@@ -132,16 +121,15 @@ pipeline {
                }
             }
         }
-
-        post {
-            success {
-               // archiveArtifacts artifacts: '*.xml', followSymlinks: false
+    }
+    
+    post{
+        success{
+            //archiveArtifacts artifacts: '*.xml', followSymlinks: false
             build job: "CD-pipeline", parameters: [
-                string(name: 'DOCKER_TAG', value: "${params.DOCKER_TAG}")
+                string(name: 'DOCKER_TAG', value: "${params.DOCKER_TAG}"),
             ]
-            }
         }
-        
     }
 
 }
