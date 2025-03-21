@@ -1,0 +1,7 @@
+version: "3.8"
+services:
+  boardgame:
+    container_name: boardgame
+    build: .
+    ports:
+      - "31100:8080"
